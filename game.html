@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>สมุดขายไอดีเกม</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ร้านของฉัน">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<script src="store.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=Anuphan:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body{margin:0}
+/* Layout: clean white & blue — one column: input card, filters, KPI tiles, chart, lists, ledger */
+:root{
+  color-scheme:light;
+  --bg:#f4f8fe; --surface:#ffffff; --ink:#0f1f3d; --muted:#5b6b86; --line:#e3eaf5; --line-strong:#cdd9ec;
+  --blue:#2563eb; --blue-hover:#1d4fd8; --blue-soft:#e8f0fe; --blue-ink:#1e40af;
+  --income:#2563eb; --transfer:#0ea5c6; --expense:#e5484d; --owe:#d97706;
+  --shadow:0 1px 2px rgba(15,31,61,.04),0 4px 14px rgba(37,99,235,.06);
+  --display:"Bai Jamjuree","Anuphan",system-ui,sans-serif;
+  --body:"Anuphan","Noto Sans Thai",system-ui,sans-serif;
+  --r:12px;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:880px;margin:0 auto;padding-block:24px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h1,h2{font-family:var(--display);margin:0;text-wrap:balance;color:var(--ink)}
+h1{font-size:1.65rem;font-weight:700;display:flex;align-items:center;gap:10px}
+h1::before{content:"";width:12px;height:28px;border-radius:4px;background:var(--blue)}
+h2{font-size:1.05rem;font-weight:600}
+.sub{color:var(--muted);margin:4px 0 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0;box-shadow:var(--shadow)}
+
+/* form controls */
+.field,textarea,input[type=date]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;padding:8px 10px;transition:border-color .15s,box-shadow .15s}
+textarea{width:100%;box-sizing:border-box;min-height:120px;padding:12px 14px;resize:vertical}
+.field:hover,textarea:hover,input[type=date]:hover{border-color:#a9bde0}
+.field:focus,textarea:focus,input[type=date]:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+textarea::placeholder{color:#97a6bf}
+.field.num{width:84px;text-align:right}
+.field.qty{width:62px;text-align:right}
+.field.text{width:100%;min-width:120px;box-sizing:border-box}
+
+/* buttons */
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-weight:600;font-size:.92rem;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);padding:9px 16px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .05s;display:inline-flex;align-items:center;gap:6px}
+button:hover{background:var(--blue-soft);border-color:#b9cdf3;color:var(--blue-ink)}
+button:active{transform:translateY(1px)}
+button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--blue-soft),0 0 0 4px var(--blue)}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 2px 6px rgba(37,99,235,.25)}
+button.primary:hover{background:var(--blue-hover);border-color:var(--blue-hover);color:#fff}
+button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+button.ghost:hover{background:var(--blue-soft);color:var(--blue-ink)}
+button.danger:hover{background:#fdecec;border-color:#f5bcbd;color:var(--expense)}
+button:disabled{opacity:.5;cursor:default;transform:none}
+button.small{padding:4px 10px;font-size:.82rem;font-weight:500;border-radius:8px}
+.hint{color:var(--muted);font-size:.85rem}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:.8rem;padding:4px 11px;border-radius:999px;background:var(--blue-soft);color:var(--blue-ink);border:1px solid transparent;font-weight:500}
+.chip:hover{border-color:#b9cdf3;background:var(--blue-soft)}
+.chip::before{content:"+";font-weight:700}
+
+/* badges */
+.pill{display:inline-block;font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.t-cash{background:#e8f0fe;color:#1e40af}
+.t-transfer{background:#e0f6fb;color:#0b7a93}
+.t-expense{background:#fdecec;color:#c22f34}
+.t-staff,.t-debt{background:#fef3e2;color:#a85a05}
+
+/* KPI tiles */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;min-width:0;box-shadow:var(--shadow)}
+.kpi .l{font-size:.8rem;color:var(--muted)}
+.kpi .v{font-family:var(--display);font-size:1.35rem;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi.profit{background:linear-gradient(135deg,#2563eb,#3b82f6);border-color:#2563eb}
+.kpi.profit .l{color:#dbe7ff}.kpi.profit .v{color:#fff}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+
+/* segmented control */
+.seg{display:inline-flex;background:#e9effa;border-radius:12px;padding:3px;gap:2px}
+.seg button{border:none;background:transparent;box-shadow:none;border-radius:9px;font-weight:500;padding:6px 14px;color:var(--muted)}
+.seg button:hover{background:rgba(255,255,255,.6);color:var(--ink)}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--blue-ink);font-weight:700;box-shadow:0 1px 3px rgba(15,31,61,.12)}
+
+/* tables */
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+thead th{font-size:.76rem;color:var(--muted);font-weight:600;letter-spacing:.03em;background:#f7faff}
+tbody tr:hover td{background:#f9fbff}
+td.num,th.num{text-align:right;white-space:nowrap}
+.preview td{padding:6px}
+.status{font-size:.88rem;color:var(--muted)}
+.status.err{color:var(--expense)}
+svg text{fill:var(--muted);font-family:var(--body);font-size:11px}
+.legend{display:flex;gap:14px;font-size:.82rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:640px){.split{grid-template-columns:1fr}}
+.list{display:flex;flex-direction:column}
+.list div{display:flex;justify-content:space-between;align-items:center;gap:10px;font-variant-numeric:tabular-nums;padding:8px 0;border-bottom:1px solid var(--line)}
+.list div:last-child{border-bottom:none}
+.list span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty{color:var(--muted);text-align:center;padding:18px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* illustrated icons */
+.ico{display:inline-flex;width:30px;height:30px;flex:none;background:#fff;border:1px solid var(--line);border-radius:9px;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(15,31,61,.06)}
+.ico svg{width:22px;height:22px}
+h2[data-icon],.btn-ico[data-icon]{display:flex;align-items:center;gap:10px}
+button[data-icon] .ico{width:22px;height:22px;border:none;box-shadow:none;background:transparent}
+button[data-icon] .ico svg{width:20px;height:20px}
+.banner{background:linear-gradient(135deg,#1d4fd8,#3b82f6);border-radius:18px;padding:18px 20px;display:flex;align-items:center;gap:16px;color:#fff;box-shadow:0 6px 20px rgba(37,99,235,.25)}
+.banner .logo{width:58px;height:58px;flex:none;background:#fff;border-radius:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.banner .logo svg{width:44px;height:44px}
+.banner h1{color:#fff}.banner h1::before{display:none}
+.banner .sub{color:#dbe7ff}
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.tile{flex-direction:column;justify-content:center;gap:6px;padding:12px 6px 10px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:0 2px 8px rgba(15,31,61,.07)}
+.tile:hover{background:#fff;border-color:#b9cdf3;box-shadow:0 4px 14px rgba(37,99,235,.15);transform:translateY(-1px)}
+.tile-ico{width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:#f4f8fe;border-radius:12px}
+.tile-ico svg{width:42px;height:42px}
+.tile-l{color:var(--blue-ink);font-size:.82rem;font-weight:600;text-align:center;line-height:1.3}
+@media (max-width:520px){.tiles{grid-template-columns:repeat(3,1fr)}}
+.kpi{display:flex;gap:10px;align-items:center}
+.kpi .ki{width:42px;height:42px;flex:none;border-radius:11px;background:#f4f8fe;display:flex;align-items:center;justify-content:center}
+.kpi .ki svg{width:32px;height:32px}
+.kpi .kt{min-width:0}
+.kpi.profit .ki{background:#fff}
+@media (max-width:400px){.kpi .ki{width:34px;height:34px}.kpi .ki svg{width:26px;height:26px}.kpi .v{font-size:1.15rem}}
+
+/* ledger */
+.lg-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.seg .cnt{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;background:rgba(37,99,235,.1);font-size:.72rem;font-weight:700;margin-left:2px}
+.lg-search{flex:1 1 200px;max-width:320px;display:flex;align-items:center;gap:8px;border:1px solid var(--line-strong);border-radius:10px;padding:0 10px;background:#fff;color:var(--muted);transition:border-color .15s,box-shadow .15s}
+.lg-search:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+.lg-search svg{width:16px;height:16px;flex:none}
+.lg-search input{border:none;outline:none;font:inherit;padding:8px 0;width:100%;background:transparent;color:var(--ink)}
+.ledger{display:flex;flex-direction:column;gap:12px}
+.day{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden;transition:box-shadow .2s}
+.day[open]{box-shadow:0 2px 10px rgba(15,31,61,.05)}
+.day summary{list-style:none;cursor:pointer;padding:12px 14px 0;display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,#f7faff,#fff)}
+.day summary::-webkit-details-marker{display:none}
+.day summary:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.day-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.day-d{font-family:var(--display);font-weight:700;font-size:1rem}
+.day-tag{font-size:.72rem;font-weight:700;color:#fff;background:var(--blue);padding:1px 8px;border-radius:999px}
+.day-n{font-size:.8rem;color:var(--muted)}
+.day-s{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:.8rem;font-weight:600;font-variant-numeric:tabular-nums}
+.day-s span{padding:3px 9px;border-radius:8px}
+.day-s .in{background:#e8f0fe;color:#1e40af}.day-s .out{background:#fdecec;color:#c22f34}
+.day-s .pr{background:var(--blue);color:#fff}.day-s .pr.neg{background:#c22f34}
+.chev{width:18px;height:18px;margin-left:auto;color:var(--muted);transition:transform .2s}
+.day:not([open]) .chev{transform:rotate(-90deg)}
+.day-bar{height:4px;background:#fdecec;border-radius:2px;margin:0 -14px;overflow:hidden}
+.day-bar i{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:0 2px 2px 0;transition:width .5s}
+.rows{list-style:none;margin:0;padding:4px 6px 6px}
+.r{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:12px;padding:10px 8px;border-radius:12px;transition:background .15s,transform .15s,opacity .2s}
+.r+.r{border-top:1px solid var(--line)}
+.r:hover{background:#f7faff}
+.r:hover+.r,.r:hover{border-color:transparent}
+.r-ico{width:40px;height:40px;border-radius:11px;background:#f4f8fe;display:flex;align-items:center;justify-content:center;transition:transform .2s}
+.r:hover .r-ico{transform:scale(1.08) rotate(-4deg)}
+.r-ico svg{width:30px;height:30px}
+.r-main{display:flex;flex-direction:column;min-width:0;gap:3px}
+.r-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:.78rem;color:var(--muted)}
+.r-meta .ex{border:1px dashed var(--line-strong);border-radius:6px;padding:0 6px}
+.r-meta .due{color:#a85a05;font-weight:600}
+.r-meta .paid{color:#15803d;font-weight:600;display:inline-flex;align-items:center;gap:2px}
+.r-meta .paid svg{width:13px;height:13px}
+.r-amt{font-family:var(--display);font-weight:700;font-size:1.02rem;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.a-cash{color:#1e40af}.a-transfer{color:#0b7a93}.a-expense{color:#c22f34}.a-debt,.a-staff{color:#a85a05}
+.r.done .r-amt{text-decoration:line-through;opacity:.55}
+.r-act{display:flex;gap:4px;align-items:center}
+.icon-btn{width:34px;height:34px;padding:0;justify-content:center;border-color:transparent;background:transparent;color:#94a3b8;border-radius:9px}
+.icon-btn svg{width:18px;height:18px}
+.icon-btn:hover{background:#fdecec;color:var(--expense);border-color:transparent}
+.icon-btn.armed{width:auto;padding:0 10px;background:var(--expense);color:#fff;font-size:.8rem;gap:4px;animation:shake .3s}
+.icon-btn.armed:hover{background:#c22f34;color:#fff}
+.pay{background:#ecfdf3;border-color:#bbf7d0;color:#15803d}
+.pay:hover{background:#dcfce7;border-color:#86efac;color:#15803d}
+.pay svg{width:14px;height:14px}
+.r.new{animation:rowIn .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*40ms)}
+.r.new .r-ico{animation:pop .5s .1s both}
+.r.leaving{opacity:0;transform:translateX(24px)}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px);background:#e8f0fe}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.lg-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 10px;text-align:center;border:1.5px dashed var(--line-strong);border-radius:14px}
+.lg-empty-ico{width:60px;height:60px;border-radius:16px;background:#f4f8fe;display:flex;align-items:center;justify-content:center}
+.lg-empty-ico svg{width:44px;height:44px}
+@media (max-width:560px){
+  .r{gap:8px;padding:10px 4px}
+  .r-ico{width:36px;height:36px}.r-ico svg{width:26px;height:26px}
+  .pay span{display:none}.pay{padding:4px 7px}
+  .lg-search{max-width:none}
+}
+@media (prefers-reduced-motion:reduce){.r.new,.r.new .r-ico,.icon-btn.armed{animation:none}}
+.back{display:inline-block;color:#dbe7ff;text-decoration:none;font-size:.85rem;font-weight:600;margin-bottom:2px}
+.back:hover{color:#fff;text-decoration:underline}
+</style>
+<style>
+.tiles{grid-template-columns:repeat(4,1fr)}
+@media (max-width:520px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.kpi.net{background:linear-gradient(135deg,#2563eb,#3b82f6);border-color:#2563eb}
+.kpi.net .l{color:#dbe7ff}.kpi.net .v{color:#fff}.kpi.net .ki{background:#fff}
+.t-buy{background:#eef2ff;color:#4338ca}.t-sell{background:#e8f0fe;color:#1e40af}.t-pagefee{background:#f3e8ff;color:#7e22ce}.t-expense{background:#fdecec;color:#c22f34}
+.a-buy{color:#4338ca}.a-sell{color:#1e40af}.a-pagefee{color:#7e22ce}.a-expense{color:#c22f34}
+.pv{display:flex;flex-direction:column;gap:10px}
+.pv-item{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;align-items:end;background:#fbfdff}
+.pv-item label{display:flex;flex-direction:column;gap:3px;font-size:.75rem;color:var(--muted);min-width:0}
+.pv-item .field{width:100%;box-sizing:border-box;min-width:0}
+.pv-item .del{justify-self:end}
+.profit-tag{font-size:.74rem;font-weight:700;padding:1px 8px;border-radius:999px;background:#ecfdf3;color:#15803d}
+.profit-tag.neg{background:#fdecec;color:#c22f34}
+.stock-row{display:flex;flex-direction:column;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
+.stock-row:last-child{border-bottom:none}
+.stock-top{display:flex;align-items:center;gap:10px}
+.stock-top .r-ico{width:36px;height:36px}.stock-top .r-ico svg{width:26px;height:26px}
+.stock-top .r-main{flex:1}
+.sellform{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;background:#f4f8fe;border-radius:10px;padding:8px}
+.sellform .field{min-width:0;width:100%;box-sizing:border-box}
+@media (max-width:520px){.sellform{grid-template-columns:1fr 1fr}}
+.age{font-size:.74rem;color:var(--muted)}
+.age.old{color:#a85a05;font-weight:600}
+/* photos */
+.thumbs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.thumb{width:56px;height:56px;border-radius:10px;overflow:hidden;padding:0;border:1px solid var(--line);background:#f4f8fe;position:relative;flex:none}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.thumb:hover img{transform:scale(1.08)}
+.thumb .more{position:absolute;inset:0;background:rgba(15,31,61,.55);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+.add-photo{width:56px;height:56px;border-radius:10px;border:1.5px dashed #a9bde0;background:#f7faff;color:var(--blue);flex-direction:column;justify-content:center;gap:0;padding:0;font-size:.68rem;font-weight:600}
+.add-photo svg{width:20px;height:20px}
+.add-photo:hover{border-style:solid}
+.add-photo.busy{pointer-events:none;opacity:.7}
+.add-photo.busy svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pv-item .thumbs{grid-column:1/-1}
+.r-ico.photo{padding:0;overflow:hidden;cursor:zoom-in;border:1px solid var(--line)}
+.r-ico.photo img{width:100%;height:100%;object-fit:cover}
+.r-ico.photo:hover{transform:scale(1.06)}
+.stock-row .thumbs{padding-left:46px}
+.viewer{position:fixed;inset:0;z-index:50;background:rgba(10,20,40,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));animation:fadeIn .2s}
+.viewer img{max-width:100%;max-height:calc(100% - 110px);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.4);object-fit:contain;animation:zoomIn .25s}
+.viewer .vbar{display:flex;gap:8px;align-items:center;color:#dbe7ff;flex-wrap:wrap;justify-content:center}
+.viewer .vtitle{color:#fff;font-weight:600;text-align:center}
+.viewer button{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);color:#fff}
+.viewer button:hover{background:rgba(255,255,255,.22);color:#fff;border-color:rgba(255,255,255,.35)}
+.viewer button.vdel.armed{background:var(--expense);border-color:var(--expense)}
+@keyframes fadeIn{from{opacity:0}}@keyframes zoomIn{from{transform:scale(.94);opacity:0}}
+@media (prefers-reduced-motion:reduce){.viewer,.viewer img,.add-photo.busy svg{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="banner">
+    <div class="logo" id="logo"></div>
+    <div><a class="back" href="./">‹ เมนูหลัก</a><h1>สมุดขายไอดีเกม</h1>
+    <p class="sub">บันทึกรับซื้อ-ขายไอดี ค่ายศเพจ ดูกำไรต่อไอดีและสต็อกคงเหลือ ส่งออก Excel / Google Sheet ได้</p></div>
+  </header>
+
+  <section class="card" aria-labelledby="inH">
+    <h2 id="inH" data-icon="pencil">บันทึกรายการ</h2>
+    <div class="tiles" id="tiles" aria-label="เพิ่มรายการด่วน"></div>
+    <textarea id="input" placeholder="เช่น&#10;รับซื้อ ROV แรงค์มาสเตอร์ สกิน 120 ตัว 1500 จากต้น&#10;ขาย ROV แรงค์มาสเตอร์ 2200 โอน ให้เบียร์&#10;จ่ายค่ายศเพจ 300&#10;จ่ายค่าเน็ต 599"></textarea>
+    <div class="row">
+      <label for="date" class="hint">วันที่</label>
+      <input type="date" id="date">
+      <button class="primary" id="parseBtn">แยกรายการ</button>
+      <span class="hint">พูดแทนพิมพ์ได้: แตะไมค์บนคีย์บอร์ดมือถือ</span>
+    </div>
+    <div id="parseStatus" class="status" aria-live="polite"></div>
+    <div id="previewBox" hidden>
+      <div class="pv" id="previewBody"></div>
+      <div class="row" style="margin-top:10px"><button class="primary" id="saveBtn">บันทึกทั้งหมด</button><button id="cancelBtn" class="ghost">ยกเลิก</button></div>
+    </div>
+  </section>
+
+  <section class="row" style="justify-content:space-between">
+    <div class="seg" role="group" aria-label="ช่วงเวลา" id="range">
+      <button data-r="today" aria-pressed="false">วันนี้</button>
+      <button data-r="7" aria-pressed="false">7 วัน</button>
+      <button data-r="month" aria-pressed="true">เดือนนี้</button>
+      <button data-r="all" aria-pressed="false">ทั้งหมด</button>
+    </div>
+    <div class="row">
+      <button id="xlsxBtn" data-icon="excel">ส่งออก Excel</button>
+      <button id="csvBtn" class="ghost">ส่งออก CSV</button>
+    </div>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="สรุปยอด"></section>
+
+  <section class="card">
+    <div class="row" style="justify-content:space-between"><h2 data-icon="chart">ยอดขายและกำไร 14 วันล่าสุด</h2>
+      <div class="legend"><span><i style="background:#93c5fd"></i>ยอดขาย</span><span><i style="background:#2563eb"></i>กำไรต่อไอดี</span><span><i style="background:#a855f7"></i>ค่ายศเพจ+จ่ายอื่น</span></div></div>
+    <div id="chart" class="tablewrap"></div>
+  </section>
+
+  <section class="split">
+    <div class="card"><h2 data-icon="trophy">เกมที่ทำกำไร</h2><div class="list" id="topGames"></div></div>
+    <div class="card"><h2 data-icon="box">ไอดีในสต็อก</h2><div id="stockList"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="row" style="justify-content:space-between"><h2 data-icon="list">รายการทั้งหมด</h2><button class="small danger" id="clearExamples" hidden>ลบข้อมูลตัวอย่าง</button></div>
+    <div id="dbStatus" class="status" aria-live="polite">กำลังโหลดข้อมูล…</div>
+    <div class="lg-tools">
+      <div class="seg" role="group" aria-label="กรองประเภท" id="lgFilter"></div>
+      <label class="lg-search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 14l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input id="lgSearch" type="search" placeholder="ค้นหาเกม ชื่อคนซื้อ-ขาย…" aria-label="ค้นหารายการ"></label>
+    </div>
+    <div id="ledger" class="ledger"></div>
+  </section>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>(Math.round(n*100)/100).toLocaleString("th-TH",{maximumFractionDigits:2});
+const pad=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const today=()=>ymd(new Date());
+const thDate=s=>{const [y,m,d]=s.split("-");return `${+d}/${+m}/${(+y+543)%100}`};
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const daysBetween=(a,b)=>Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/864e5);
+const TYPES={buy:"รับซื้อไอดี",sell:"ขายไอดี",pagefee:"ค่ายศเพจ",expense:"รายจ่ายอื่น"};
+const METHOD={cash:"เงินสด",transfer:"โอน"};
+let ids=[], costs=[], pending=[], range="month", col=null, costCol=null, sample=null, downloads=null, sellingId=null;
+$("date").value=today();
+
+const ICONS={
+shop:`<svg viewBox="0 0 48 48"><rect x="7" y="20" width="34" height="22" rx="2" fill="#e8eef8"/><rect x="7" y="20" width="34" height="22" rx="2" fill="none" stroke="#c9d6ea"/><path d="M5 12h38l-2 9H7z" fill="#2563eb"/><path d="M11 12l-2 9M18 12l-1 9M25 12v9M31 12l1 9M38 12l2 9" stroke="#fff" stroke-width="2.4" opacity=".9"/><rect x="5" y="9" width="38" height="4" rx="2" fill="#1e40af"/><rect x="12" y="27" width="10" height="15" rx="1.5" fill="#f59e0b"/><circle cx="20" cy="35" r="1" fill="#7c4a03"/><rect x="26" y="27" width="11" height="8" rx="1.5" fill="#bfdbfe"/><path d="M27 34l9-6" stroke="#fff" stroke-width="1.5"/></svg>`,
+cash:`<svg viewBox="0 0 48 48"><rect x="6" y="15" width="34" height="20" rx="3" fill="#16a34a" transform="rotate(-8 23 25)"/><rect x="9" y="17" width="34" height="20" rx="3" fill="#22c55e"/><rect x="12" y="20" width="28" height="14" rx="2" fill="none" stroke="#bbf7d0" stroke-width="1.5"/><circle cx="26" cy="27" r="5" fill="#bbf7d0"/><text x="26" y="30.5" font-size="8" font-weight="700" text-anchor="middle" fill="#15803d" font-family="system-ui">฿</text><circle cx="36" cy="38" r="6" fill="#f59e0b"/><circle cx="36" cy="38" r="4" fill="#fbbf24"/></svg>`,
+transfer:`<svg viewBox="0 0 48 48"><rect x="13" y="5" width="22" height="38" rx="4" fill="#1f2937"/><rect x="15" y="9" width="18" height="29" rx="1.5" fill="#fff"/><rect x="18" y="13" width="12" height="12" rx="1" fill="#0f1f3d"/><rect x="19.5" y="14.5" width="3.5" height="3.5" fill="#fff"/><rect x="25" y="14.5" width="3.5" height="3.5" fill="#fff"/><rect x="19.5" y="20" width="3.5" height="3.5" fill="#fff"/><rect x="25" y="21" width="2" height="2" fill="#fff"/><rect x="18" y="28" width="12" height="3" rx="1.5" fill="#0ea5c6"/><rect x="18" y="33" width="8" height="2" rx="1" fill="#cbd5e1"/><circle cx="36" cy="34" r="8" fill="#2563eb"/><path d="M32 33h7l-2.5-2.5M40 35.5h-7l2.5 2.5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+expense:`<svg viewBox="0 0 48 48"><path d="M11 5h26v38l-4-3-4 3-4-3-4 3-4-3-4 3z" fill="#fff" stroke="#cbd5e1"/><rect x="15" y="11" width="12" height="2.5" rx="1.2" fill="#94a3b8"/><rect x="15" y="17" width="18" height="2" rx="1" fill="#cbd5e1"/><rect x="15" y="22" width="14" height="2" rx="1" fill="#cbd5e1"/><rect x="15" y="27" width="18" height="2" rx="1" fill="#cbd5e1"/><rect x="15" y="33" width="18" height="3" rx="1.5" fill="#e5484d"/><circle cx="36" cy="12" r="7" fill="#e5484d"/><path d="M32.5 12h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+profit:`<svg viewBox="0 0 48 48"><rect x="6" y="6" width="36" height="36" rx="5" fill="#eef4ff"/><rect x="11" y="28" width="6" height="9" rx="1.5" fill="#93c5fd"/><rect x="21" y="22" width="6" height="15" rx="1.5" fill="#60a5fa"/><rect x="31" y="15" width="6" height="22" rx="1.5" fill="#2563eb"/><path d="M10 24l9-7 6 4 12-10" stroke="#f59e0b" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M32 10h6v6" stroke="#f59e0b" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+debt:`<svg viewBox="0 0 48 48"><rect x="9" y="6" width="26" height="36" rx="3" fill="#f59e0b"/><rect x="12" y="6" width="23" height="36" rx="2" fill="#fbbf24"/><rect x="16" y="12" width="15" height="3" rx="1.5" fill="#fff" opacity=".85"/><rect x="16" y="18" width="11" height="2" rx="1" fill="#fff" opacity=".6"/><circle cx="35" cy="30" r="5" fill="#fde2c4"/><path d="M26 44c0-6 4-9 9-9s9 3 9 9z" fill="#2563eb"/><path d="M30 28c0-4 2.5-6 5-6s5 2 5 6c-1-1.5-3-2.5-5-2.5S31 26.5 30 28z" fill="#1f2937"/></svg>`,
+staff:`<svg viewBox="0 0 48 48"><circle cx="24" cy="18" r="8" fill="#fde2c4"/><path d="M15 16c0-6 4-9 9-9s9 3 9 9c-2-2-5-3-9-3s-7 1-9 3z" fill="#2563eb"/><rect x="14" y="13" width="20" height="3" rx="1.5" fill="#1e40af"/><path d="M9 44c0-9 7-14 15-14s15 5 15 14z" fill="#3b82f6"/><path d="M20 30l4 6 4-6" fill="#fff"/><rect x="27" y="35" width="8" height="6" rx="1" fill="#fff"/><rect x="28.5" y="37" width="5" height="1.2" fill="#94a3b8"/><circle cx="38" cy="12" r="6" fill="#f59e0b"/><path d="M38 9v3.5l2 1.5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`,
+bag:`<svg viewBox="0 0 48 48"><path d="M10 16h28l-2 26H12z" fill="#2563eb"/><path d="M10 16h28l-.5 6h-27z" fill="#1e40af"/><path d="M17 18v-4a7 7 0 0114 0v4" stroke="#0f1f3d" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="17" cy="19" r="1.6" fill="#fff"/><circle cx="31" cy="19" r="1.6" fill="#fff"/><rect x="18" y="27" width="12" height="9" rx="2" fill="#fbbf24"/></svg>`,
+excel:`<svg viewBox="0 0 48 48"><path d="M10 5h20l8 8v30H10z" fill="#fff" stroke="#cbd5e1"/><path d="M30 5v8h8" fill="#e2e8f0"/><rect x="14" y="17" width="20" height="18" rx="1" fill="#dcfce7"/><path d="M14 23h20M14 29h20M21 17v18M28 17v18" stroke="#16a34a" stroke-width="1"/><rect x="5" y="20" width="14" height="14" rx="2.5" fill="#16a34a"/><path d="M9 24l6 6M15 24l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="37" cy="37" r="7" fill="#2563eb"/><path d="M37 33v7M34 37.5l3 3 3-3" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+chart:`<svg viewBox="0 0 48 48"><rect x="5" y="8" width="38" height="30" rx="4" fill="#fff" stroke="#cbd5e1"/><rect x="11" y="24" width="4" height="9" rx="1" fill="#2563eb"/><rect x="17" y="18" width="4" height="15" rx="1" fill="#0ea5c6"/><rect x="25" y="21" width="4" height="12" rx="1" fill="#2563eb"/><rect x="31" y="14" width="4" height="19" rx="1" fill="#0ea5c6"/><rect x="37" y="27" width="2" height="6" rx="1" fill="#e5484d"/><rect x="16" y="40" width="16" height="3" rx="1.5" fill="#94a3b8"/></svg>`,
+trophy:`<svg viewBox="0 0 48 48"><path d="M14 8h20v10a10 10 0 01-20 0z" fill="#fbbf24"/><path d="M14 11H8a6 6 0 006 8M34 11h6a6 6 0 01-6 8" stroke="#f59e0b" stroke-width="2.6" fill="none"/><path d="M24 12l1.8 3.6 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6z" fill="#fff"/><rect x="21" y="27" width="6" height="7" fill="#f59e0b"/><rect x="14" y="34" width="20" height="7" rx="2" fill="#2563eb"/><rect x="19" y="36.5" width="10" height="2" rx="1" fill="#bfdbfe"/></svg>`,
+clock:`<svg viewBox="0 0 48 48"><circle cx="24" cy="25" r="17" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><circle cx="24" cy="25" r="13" fill="#fef3e2"/><path d="M24 16v9l6 4" stroke="#d97706" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="20" y="4" width="8" height="4" rx="2" fill="#2563eb"/><circle cx="38" cy="11" r="5" fill="#e5484d"/><rect x="37.2" y="8" width="1.6" height="4" rx=".8" fill="#fff"/><circle cx="38" cy="13.8" r=".9" fill="#fff"/></svg>`,
+list:`<svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="38" rx="4" fill="#fff" stroke="#cbd5e1"/><rect x="17" y="3" width="14" height="7" rx="2" fill="#2563eb"/><circle cx="15" cy="18" r="2.5" fill="#22c55e"/><circle cx="15" cy="26" r="2.5" fill="#0ea5c6"/><circle cx="15" cy="34" r="2.5" fill="#e5484d"/><rect x="20" y="17" width="14" height="2.4" rx="1.2" fill="#94a3b8"/><rect x="20" y="25" width="11" height="2.4" rx="1.2" fill="#94a3b8"/><rect x="20" y="33" width="13" height="2.4" rx="1.2" fill="#94a3b8"/></svg>`,
+pencil:`<svg viewBox="0 0 48 48"><rect x="6" y="8" width="30" height="34" rx="4" fill="#fff" stroke="#cbd5e1"/><rect x="11" y="15" width="18" height="2.4" rx="1.2" fill="#94a3b8"/><rect x="11" y="21" width="14" height="2.4" rx="1.2" fill="#cbd5e1"/><rect x="11" y="27" width="16" height="2.4" rx="1.2" fill="#cbd5e1"/><path d="M27 37l14-14 4 4-14 14-5 1z" fill="#f59e0b"/><path d="M38 26l4 4" stroke="#fff" stroke-width="1.5"/><path d="M41 23l2-2 4 4-2 2z" fill="#2563eb"/><path d="M27 37l-1 5 5-1z" fill="#1f2937"/></svg>`
+};
+
+Object.assign(ICONS,{
+game:`<svg viewBox="0 0 48 48"><path d="M14 14h20c6 0 10 5 10 13 0 7-3 11-7 11-3 0-5-3-7-6H18c-2 3-4 6-7 6-4 0-7-4-7-11 0-8 4-13 10-13z" fill="#2563eb"/><path d="M14 14h20c4 0 7 2 8.5 6H5.5C7 16 10 14 14 14z" fill="#3b82f6"/><rect x="11" y="23" width="9" height="3" rx="1.5" fill="#fff"/><rect x="14" y="20" width="3" height="9" rx="1.5" fill="#fff"/><circle cx="32" cy="22" r="2.2" fill="#fbbf24"/><circle cx="36.5" cy="26" r="2.2" fill="#22c55e"/><circle cx="27.5" cy="26" r="2.2" fill="#e5484d"/><circle cx="32" cy="30" r="2.2" fill="#0ea5c6"/></svg>`,
+buy:`<svg viewBox="0 0 48 48"><path d="M6 10h6l4 20h20l4-14H14" fill="none" stroke="#1f2937" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 16h25l-4 14H17z" fill="#c7d2fe"/><circle cx="19" cy="37" r="3" fill="#1f2937"/><circle cx="33" cy="37" r="3" fill="#1f2937"/><rect x="21" y="6" width="14" height="10" rx="2" fill="#4f46e5"/><circle cx="25" cy="11" r="1.6" fill="#fff"/><circle cx="31" cy="11" r="1.6" fill="#fff"/><rect x="24" y="19" width="10" height="7" rx="1.5" fill="#4f46e5"/></svg>`,
+sell:`<svg viewBox="0 0 48 48"><path d="M6 22V9a3 3 0 013-3h13l20 20-16 16z" fill="#3b82f6"/><path d="M6 22V9a3 3 0 013-3h13l4 4H12a2 2 0 00-2 2v14z" fill="#60a5fa"/><circle cx="15" cy="15" r="3.5" fill="#fff"/><text x="27" y="31" font-size="11" font-weight="800" fill="#fff" text-anchor="middle" font-family="system-ui" transform="rotate(45 27 27)">฿</text><circle cx="38" cy="38" r="7" fill="#22c55e"/><path d="M34.5 38l2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+pagefee:`<svg viewBox="0 0 48 48"><rect x="7" y="9" width="30" height="34" rx="4" fill="#fff" stroke="#cbd5e1"/><rect x="7" y="9" width="30" height="9" rx="4" fill="#2563eb"/><rect x="7" y="14" width="30" height="4" fill="#2563eb"/><circle cx="16" cy="27" r="5" fill="#bfdbfe"/><rect x="24" y="24" width="9" height="2.4" rx="1.2" fill="#94a3b8"/><rect x="24" y="29" width="7" height="2.4" rx="1.2" fill="#cbd5e1"/><rect x="12" y="35" width="20" height="2.4" rx="1.2" fill="#cbd5e1"/><path d="M30 4l3 5 4-4 3 5 4-3-2 10H32z" fill="#a855f7"/><path d="M32 17h10" stroke="#7e22ce" stroke-width="2"/><circle cx="37" cy="10.5" r="1.4" fill="#fde68a"/></svg>`,
+box:`<svg viewBox="0 0 48 48"><path d="M24 5l17 8v20l-17 9-17-9V13z" fill="#fbbf24"/><path d="M24 5l17 8-17 8-17-8z" fill="#fde68a"/><path d="M24 21v21l-17-9V13z" fill="#f59e0b"/><path d="M15.5 9l17 8v6l-3-1.5V18.5L12.5 10.5z" fill="#2563eb"/><rect x="10" y="25" width="7" height="4" rx="1" fill="#fff" opacity=".8" transform="skewY(26)"/></svg>`,
+coins:`<svg viewBox="0 0 48 48"><ellipse cx="20" cy="34" rx="12" ry="5" fill="#d97706"/><rect x="8" y="26" width="24" height="8" fill="#f59e0b"/><ellipse cx="20" cy="26" rx="12" ry="5" fill="#fbbf24"/><ellipse cx="30" cy="20" rx="11" ry="4.5" fill="#d97706"/><rect x="19" y="12" width="22" height="8" fill="#f59e0b"/><ellipse cx="30" cy="12" rx="11" ry="4.5" fill="#fde68a"/><text x="30" y="15" font-size="7" font-weight="800" text-anchor="middle" fill="#b45309" font-family="system-ui">฿</text></svg>`
+});
+document.querySelectorAll("[data-icon]").forEach(el=>{const i=document.createElement("span");i.className="ico";i.setAttribute("aria-hidden","true");i.innerHTML=ICONS[el.dataset.icon]||"";el.prepend(i)});
+$("logo").innerHTML=ICONS.game;
+const QUICK=[["buy","รับซื้อไอดี","รับซื้อ  ราคา  จาก "],["sell","ขายไอดี","ขาย  ราคา  โอน ให้ "],["pagefee","ค่ายศเพจ","จ่ายค่ายศเพจ "],["expense","รายจ่ายอื่น","จ่ายค่า  "]];
+QUICK.forEach(([ic,label,tpl])=>{const b=document.createElement("button");b.type="button";b.className="tile";b.innerHTML=`<span class="tile-ico">${ICONS[ic]}</span><span class="tile-l">${label}</span>`;
+  b.onclick=()=>{const t=$("input");t.value+=(t.value&&!t.value.endsWith("\n")?"\n":"")+tpl;t.focus();const pos=t.value.length-tpl.length+tpl.indexOf(" ")+1;try{t.setSelectionRange(pos,pos)}catch(e){}};$("tiles").append(b)});
+
+/* ---------- parsing ---------- */
+const GAMES=[["ROV",/rov|ร็อ?ฟ|arena of valor/i],["Free Fire",/free ?fire|ฟีฟาย|ฟรีฟาย|\bff\b/i],["PUBG",/pubg|พับจี/i],["Valorant",/valorant|วาโล/i],["Genshin",/genshin|เก็นชิน|เกนชิน/i],["Roblox",/roblox|โรบล็อก/i],["MLBB",/mlbb|mobile legends|โมบาย/i],["Honkai",/honkai|ฮงไก/i],["Ragnarok",/ragnarok|แร็ก|แรก/i],["LoL",/\blol\b|league of legends/i],["Call of Duty",/cod|call of duty/i],["Minecraft",/minecraft|มายคราฟ/i],["Fortnite",/fortnite/i],["Clash of Clans",/clash|coc|แคลช/i],["Seven Knights",/seven knights|เซเว่นไนท์/i],["Cookie Run",/cookie|คุกกี้/i],["Tower of Fantasy",/tower of fantasy/i],["eFootball",/efootball|pes/i],["FC Mobile",/fc mobile|fifa/i]];
+const unsold=()=>ids.filter(x=>x.status==="stock").sort((a,b)=>a.buyDate.localeCompare(b.buyDate));
+function guessGame(t){for(const [n,re] of GAMES) if(re.test(t)) return n; return "";}
+function ruleParse(text){
+  const out=[];
+  for(let line of text.split(/\n/)){
+    line=line.trim(); if(!line) continue;
+    const nums=[...line.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(บาท|฿)?/g)].map(m=>({v:parseFloat(m[1].replace(/,/g,"")),baht:!!m[2]}));
+    if(!nums.length) continue;
+    const amt=(nums.find(n=>n.baht)||nums[nums.length-1]).v;
+    let type="sell";
+    if(/ยศ.*เพจ|เพจ.*ยศ|ค่าเพจ/.test(line)) type="pagefee";
+    else if(/รับซื้อ|^ซื้อ|รับมา|ได้มา/.test(line)) type="buy";
+    else if(/ขาย|ปล่อย/.test(line)) type="sell";
+    else if(/จ่าย|^ค่า/.test(line)) type="expense";
+    const person=((line.match(/(?:จาก|ให้|คนซื้อ|ลูกค้า)\s*([^\s\d]+)/)||[])[1]||"");
+    const method=/โอน|พร้อมเพย์|สแกน|ทรู|wallet/i.test(line)?"transfer":"cash";
+    const game=guessGame(line);
+    const ms=[...line.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(บาท|฿)?/g)]; const am=ms.find(m=>m[2])||ms[ms.length-1];
+    let detail=(line.slice(0,am.index)+" "+line.slice(am.index+am[0].length)).replace(/รับซื้อ|ซื้อ|ขาย|ปล่อย|ราคา|โอน|เงินสด|สด|จาก\s*\S*|ให้\s*\S*|จ่าย|ค่ายศเพจ/g," ");
+    for(const [,re] of GAMES) detail=detail.replace(re," ");
+    detail=detail.replace(/ไอดี|id/gi," ").replace(/\s+/g," ").trim();
+    const p={type,game,detail,amount:amt,cost:0,person,method,stockId:""};
+    if(type==="pagefee"){p.detail=detail||"ค่ายศเพจ";p.game="";}
+    if(type==="expense"){p.detail=detail||"รายจ่าย";p.game="";}
+    if(type==="sell") p.stockId=matchStock(p);
+    out.push(p);
+  }
+  return out;
+}
+function matchStock(p){
+  const s=unsold(); if(!s.length) return "";
+  const g=s.filter(x=>!p.game||x.game===p.game);
+  if(!g.length) return "";
+  const words=(p.detail||"").split(/\s+/).filter(w=>w.length>1);
+  const scored=g.map(x=>({x,sc:words.filter(w=>(x.detail||"").includes(w)).length})).sort((a,b)=>b.sc-a.sc);
+  return scored[0].x.id;
+}
+async function aiParse(text){
+  const stock=unsold().slice(0,60).map(x=>({id:x.id,game:x.game,detail:x.detail,cost:x.cost,buyDate:x.buyDate}));
+  const prompt=`คุณช่วยลงบัญชีร้านขายไอดีเกม (รับซื้อไอดีมาแล้วขายต่อ) แปลงข้อความเป็นรายการ ตอบเป็น JSON array เท่านั้น
+แต่ละรายการ: {"type":..., "game":"ชื่อเกมแบบสั้นมาตรฐาน เช่น ROV, Free Fire, PUBG, Valorant หรือ \"\"", "detail":"รายละเอียดไอดี เช่น แรงค์ สกิน เลเวล หรือชื่อรายจ่าย", "amount":ตัวเลขบาท, "person":"ชื่อคนขายให้เรา(ถ้ารับซื้อ) หรือคนซื้อ(ถ้าขาย) หรือ \"\"", "method":"cash"|"transfer", "stockId":"id จากสต็อกถ้าเป็นการขายไอดีที่ตรงกับในสต็อก ไม่งั้น \"\""}
+type ใช้ได้เท่านั้น: "buy"=รับซื้อไอดีเข้าสต็อก (amount=ราคาทุน), "sell"=ขายไอดีออก (amount=ราคาขาย), "pagefee"=ค่ายศเพจ/ค่าเพิ่มระดับเพจ, "expense"=รายจ่ายอื่นของร้าน
+method เป็น transfer ถ้าพูดถึง โอน/พร้อมเพย์/สแกน/วอลเล็ต ไม่งั้น cash
+สต็อกที่ยังไม่ขาย: ${JSON.stringify(stock)}
+ข้อความ:
+${text}`;
+  const r=await sample(prompt,{modelTier:"quick"});
+  const m=(r.text||"").match(/\[[\s\S]*\]/); if(!m) throw 0;
+  const ok=new Set(unsold().map(x=>x.id));
+  return JSON.parse(m[0]).filter(x=>TYPES[x.type]&&isFinite(+x.amount)).map(x=>{
+    const p={type:x.type,game:String(x.game||""),detail:String(x.detail||""),amount:+x.amount,cost:0,person:String(x.person||""),method:x.method==="transfer"?"transfer":"cash",stockId:ok.has(x.stockId)?x.stockId:""};
+    if(p.type==="sell"&&!p.stockId) p.stockId=matchStock(p);
+    return p;});
+}
+$("parseBtn").onclick=async()=>{
+  const text=$("input").value.trim(); const st=$("parseStatus");
+  if(!text){st.textContent="พิมพ์รายการก่อน เช่น ขาย ROV แรงค์มาสเตอร์ 2200 โอน";return;}
+  $("parseBtn").disabled=true; st.className="status"; st.textContent="กำลังแยกรายการ…";
+  let res=null; if(sample){try{res=await aiParse(text)}catch(e){res=null}}
+  if(!res||!res.length){res=ruleParse(text); st.textContent="แยกรายการแบบพื้นฐานแล้ว ตรวจเกมและประเภทก่อนบันทึก";}
+  else st.textContent="ตรวจรายการด้านล่าง แก้ได้ทุกช่อง แล้วกดบันทึก";
+  $("parseBtn").disabled=false;
+  if(!res.length){st.className="status err";st.textContent="ไม่พบราคาในข้อความ ใส่ตัวเลขด้วย เช่น จ่ายค่ายศเพจ 300";return;}
+  pending=res; renderPreview();
+};
+function renderPreview(){
+  const box=$("previewBody"); box.innerHTML="";
+  const stock=unsold();
+  pending.forEach((p,i)=>{
+    const d=document.createElement("div"); d.className="pv-item";
+    const typeSel=`<label>ประเภท<select class="field" id="pt${i}">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}"${k===p.type?" selected":""}>${v}</option>`).join("")}</select></label>`;
+    const isId=p.type==="buy"||p.type==="sell";
+    let html=typeSel;
+    if(isId) html+=`<label>เกม<input class="field" id="pg${i}" list="gameList" value="${esc(p.game)}"></label>`;
+    html+=`<label>${isId?"รายละเอียดไอดี":"รายการ"}<input class="field" id="pd${i}" value="${esc(p.detail)}"></label>`;
+    html+=`<label>${p.type==="buy"?"ราคาทุน":p.type==="sell"?"ราคาขาย":"จำนวนเงิน"} (บาท)<input class="field" type="number" inputmode="decimal" id="pa${i}" value="${p.amount}"></label>`;
+    if(p.type==="sell"){
+      html+=`<label>ไอดีจากสต็อก<select class="field" id="ps${i}"><option value="">ไม่ผูกสต็อก (ใส่ทุนเอง)</option>${stock.map(x=>`<option value="${x.id}"${x.id===p.stockId?" selected":""}>${esc(x.game)} · ${esc(x.detail||"-")} · ทุน ${fmt(x.cost)}</option>`).join("")}</select></label>`;
+      if(!p.stockId) html+=`<label>ทุน (บาท)<input class="field" type="number" inputmode="decimal" id="pc${i}" value="${p.cost||0}"></label>`;
+      const cost=p.stockId?(ids.find(x=>x.id===p.stockId)||{}).cost||0:p.cost||0;
+      const pr=p.amount-cost;
+      html+=`<label>วิธีรับเงิน<select class="field" id="pm${i}"><option value="cash"${p.method==="cash"?" selected":""}>เงินสด</option><option value="transfer"${p.method==="transfer"?" selected":""}>โอน</option></select></label>`;
+      html+=`<label>คนซื้อ<input class="field" id="pp${i}" value="${esc(p.person)}"></label>`;
+      html+=`<div><span class="profit-tag ${pr<0?"neg":""}">กำไร ฿${fmt(pr)}</span></div>`;
+    } else if(p.type==="buy"){
+      html+=`<label>ซื้อจาก<input class="field" id="pp${i}" value="${esc(p.person)}"></label>`;
+    }
+    html+=`<button class="icon-btn del" aria-label="ลบรายการนี้">${TRASH}</button>`;
+    if(p.type==="buy"||(p.type==="sell"&&!p.stockId)) html+=thumbsHtml(p.photos,"pv"+i,8);
+    d.innerHTML=html; box.append(d);
+    const ab=d.querySelector(`[data-addphoto="pv${i}"]`); if(ab) ab.onclick=()=>pickPhotos(ab,got=>{p.photos=[...(p.photos||[]),...got];renderPreview()});
+    d.querySelectorAll(`[data-view="pv${i}"]`).forEach(b=>b.onclick=()=>openViewer(p.photos,+b.dataset.idx,"รูปที่จะบันทึก",ph=>{p.photos=p.photos.filter(x=>x!==ph);assetsApi&&assetsApi.delete(ph).catch(()=>{});renderPreview()}));
+    const on=(id,ev,fn)=>{const el=d.querySelector("#"+id); if(el) el[ev]=fn;};
+    on(`pt${i}`,"onchange",e=>{p.type=e.target.value;if(p.type==="sell"&&!p.stockId)p.stockId=matchStock(p);renderPreview()});
+    on(`pg${i}`,"oninput",e=>p.game=e.target.value);
+    on(`pd${i}`,"oninput",e=>p.detail=e.target.value);
+    on(`pa${i}`,"oninput",e=>{p.amount=+e.target.value||0;updTag()});
+    on(`ps${i}`,"onchange",e=>{p.stockId=e.target.value;renderPreview()});
+    on(`pc${i}`,"oninput",e=>{p.cost=+e.target.value||0;updTag()});
+    on(`pm${i}`,"onchange",e=>p.method=e.target.value);
+    on(`pp${i}`,"oninput",e=>p.person=e.target.value);
+    function updTag(){const t=d.querySelector(".profit-tag");if(!t)return;const c=p.stockId?(ids.find(x=>x.id===p.stockId)||{}).cost||0:p.cost||0;const pr=p.amount-c;t.textContent="กำไร ฿"+fmt(pr);t.classList.toggle("neg",pr<0)}
+    d.querySelector(".del").onclick=()=>{pending.splice(i,1);renderPreview()};
+  });
+  $("previewBox").hidden=!pending.length;
+}
+$("cancelBtn").onclick=()=>{pending.forEach(p=>(p.photos||[]).forEach(ph=>assetsApi&&assetsApi.delete(ph).catch(()=>{})));pending=[];renderPreview();$("parseStatus").textContent=""};
+$("saveBtn").onclick=async()=>{
+  const st=$("parseStatus");
+  if(!col){st.className="status err";st.textContent="ยังเชื่อมที่เก็บข้อมูลไม่ได้ ลองเปิดหน้านี้ใหม่";return;}
+  const used=pending.filter(p=>p.type==="sell"&&p.stockId).map(p=>p.stockId);
+  if(new Set(used).size!==used.length){st.className="status err";st.textContent="มีการขายไอดีในสต็อกตัวเดียวกันซ้ำ เลือกไอดีให้ต่างกัน";return;}
+  $("saveBtn").disabled=true; const date=$("date").value||today(); let ok=0;
+  for(const p of pending){
+    try{
+      const now=Date.now();
+      if(p.type==="buy") await col.add({game:p.game.trim()||"ไม่ระบุเกม",detail:p.detail.trim(),cost:+p.amount||0,buyDate:date,seller:p.person.trim(),status:"stock",photos:p.photos||[],createdAt:now});
+      else if(p.type==="sell"&&p.stockId) await col.doc(p.stockId).update({status:"sold",price:+p.amount||0,saleDate:date,buyer:p.person.trim(),method:p.method,soldAt:now});
+      else if(p.type==="sell") await col.add({game:p.game.trim()||"ไม่ระบุเกม",detail:p.detail.trim(),cost:+p.cost||0,buyDate:date,seller:"",status:"sold",price:+p.amount||0,saleDate:date,buyer:p.person.trim(),method:p.method,photos:p.photos||[],createdAt:now,soldAt:now});
+      else await costCol.add({date,kind:p.type,item:p.detail.trim()||TYPES[p.type],amount:+p.amount||0,createdAt:now});
+      ok++;
+    }catch(e){st.className="status err";st.textContent=e&&e.code==="quota_exceeded"?"ที่เก็บข้อมูลเต็ม ลบรายการเก่าบางส่วนก่อน":"บันทึกบางรายการไม่สำเร็จ ลองกดบันทึกอีกครั้ง";break;}
+  }
+  $("saveBtn").disabled=false;
+  if(ok===pending.length){pending=[];renderPreview();$("input").value="";st.className="status";st.textContent=`บันทึกแล้ว ${ok} รายการ`;}
+  else{pending=pending.slice(ok);renderPreview();}
+};
+
+/* ---------- dashboard ---------- */
+function inR(d){
+  if(!d) return false; if(range==="all") return true; const t=today();
+  if(range==="today") return d===t; if(range==="month") return d.slice(0,7)===t.slice(0,7);
+  const x=new Date(); x.setDate(x.getDate()-6); return d>=ymd(x);
+}
+document.querySelectorAll("#range button").forEach(b=>b.onclick=()=>{range=b.dataset.r;document.querySelectorAll("#range button").forEach(x=>x.setAttribute("aria-pressed",x===b));render()});
+let assetsApi=null;
+const CAM='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+const blob=id=>window.localBlobUrl(id);
+function compress(file){return new Promise(res=>{
+  if(!/^image\//.test(file.type)||file.type==="image/gif"){res(file);return;}
+  const url=URL.createObjectURL(file),img=new Image();
+  img.onload=()=>{const M=1600,k=Math.min(1,M/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);c.toBlob(b=>res(b&&b.size<file.size?b:file),"image/jpeg",0.85)};
+  img.onerror=()=>{URL.revokeObjectURL(url);res(file)};img.src=url;})}
+function pickPhotos(btn,onDone){
+  if(!assetsApi){alertBar("เบราว์เซอร์นี้เก็บรูปไม่ได้ ปิดโหมดส่วนตัวแล้วลองใหม่");return;}
+  const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.multiple=true;
+  inp.onchange=async()=>{const files=[...inp.files].slice(0,8);if(!files.length)return;btn&&btn.classList.add("busy");const got=[];
+    for(const f of files){try{const r=await assetsApi.upload(await compress(f));got.push(r.id)}catch(e){alertBar(e&&e.code==="quota_exceeded"?"พื้นที่เก็บรูปเต็ม ลบรูปเก่าบางส่วนก่อน":"อัปโหลดรูปบางรูปไม่สำเร็จ ลองอีกครั้ง")}}
+    btn&&btn.classList.remove("busy");if(got.length)onDone(got);};
+  inp.click();}
+function thumbsHtml(photos,key,max=4,addable=true){
+  photos=photos||[];const shown=photos.slice(0,max);
+  return `<div class="thumbs">${shown.map((ph,i)=>`<button class="thumb" data-view="${key}" data-idx="${i}" aria-label="ดูรูปที่ ${i+1}"><img src="${blob(ph)}" alt="" loading="lazy">${i===max-1&&photos.length>max?`<span class="more">+${photos.length-max+1}</span>`:""}</button>`).join("")}${addable?`<button class="add-photo" data-addphoto="${key}" aria-label="เพิ่มรูป">${CAM}<span>เพิ่มรูป</span></button>`:""}</div>`;}
+function openViewer(photos,idx,title,onDelete){
+  let i=idx;const v=document.createElement("div");v.className="viewer";v.setAttribute("role","dialog");v.setAttribute("aria-label","ดูรูปไอดี");
+  const draw=()=>{v.innerHTML=`<div class="vtitle">${esc(title)}</div><img src="${blob(photos[i])}" alt="รูปไอดี ${i+1}"><div class="vbar">${photos.length>1?`<button id="vPrev">‹ ก่อนหน้า</button><span>${i+1} / ${photos.length}</span><button id="vNext">ถัดไป ›</button>`:""}${onDelete?`<button class="vdel" id="vDel">${TRASH} ลบรูปนี้</button>`:""}<button id="vClose">ปิด</button></div>`;
+    v.querySelector("#vClose").onclick=close;
+    if(photos.length>1){v.querySelector("#vPrev").onclick=()=>{i=(i-1+photos.length)%photos.length;draw()};v.querySelector("#vNext").onclick=()=>{i=(i+1)%photos.length;draw()};}
+    if(onDelete){const d=v.querySelector("#vDel");d.onclick=()=>{if(!d.dataset.armed){d.dataset.armed=1;d.classList.add("armed");d.lastChild.textContent=" ยืนยันลบรูป";return;}
+      const id=photos[i];onDelete(id);photos=photos.filter(x=>x!==id);if(!photos.length)close();else{i=Math.min(i,photos.length-1);draw();}}}};
+  const key=e=>{if(e.key==="Escape")close();if(e.key==="ArrowRight"&&photos.length>1){i=(i+1)%photos.length;draw()}if(e.key==="ArrowLeft"&&photos.length>1){i=(i-1+photos.length)%photos.length;draw()}};
+  function close(){v.remove();document.removeEventListener("keydown",key)}
+  v.onclick=e=>{if(e.target===v)close()};document.addEventListener("keydown",key);draw();document.body.append(v);v.querySelector("#vClose").focus();}
+async function addPhotosToDoc(docId,newIds){const x=ids.find(i=>i.id===docId);if(!x)return;try{await col.doc(docId).update({photos:[...(x.photos||[]),...newIds]})}catch(e){alertBar("บันทึกรูปไม่สำเร็จ ลองอีกครั้ง")}}
+async function removePhoto(docId,phId){const x=ids.find(i=>i.id===docId);if(!x)return;try{await col.doc(docId).update({photos:(x.photos||[]).filter(p=>p!==phId)});assetsApi&&assetsApi.delete(phId).catch(()=>{})}catch(e){alertBar("ลบรูปไม่สำเร็จ")}}
+function wirePhotos(root){
+  root.querySelectorAll("[data-addphoto]").forEach(b=>{const k=b.dataset.addphoto;if(k.startsWith("pv"))return;b.onclick=()=>pickPhotos(b,got=>addPhotosToDoc(k,got))});
+  root.querySelectorAll("[data-view]").forEach(b=>{const k=b.dataset.view;if(k.startsWith("pv"))return;b.onclick=()=>{const x=ids.find(i=>i.id===k);if(x)openViewer(x.photos||[],+b.dataset.idx,`${x.game} · ${x.detail||""}`,ph=>removePhoto(k,ph))}});
+}
+const TRASH='<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function render(){
+  const sold=ids.filter(x=>x.status==="sold"&&inR(x.saleDate));
+  const bought=ids.filter(x=>inR(x.buyDate));
+  const cs=costs.filter(c=>inR(c.date));
+  const sales=sold.reduce((a,x)=>a+x.price,0), cogs=sold.reduce((a,x)=>a+x.cost,0);
+  const page=cs.filter(c=>c.kind==="pagefee").reduce((a,c)=>a+c.amount,0), other=cs.filter(c=>c.kind==="expense").reduce((a,c)=>a+c.amount,0);
+  const net=sales-cogs-page-other; const st=unsold(); const stockVal=st.reduce((a,x)=>a+x.cost,0);
+  const k=[["ยอดขาย","฿"+fmt(sales),"sell"],["ทุนไอดีที่ขาย","฿"+fmt(cogs),"buy"],["ค่ายศเพจ","฿"+fmt(page),"pagefee"],["กำไรสุทธิ","฿"+fmt(net),"profit","net"],
+           ["ขายได้","%s ไอดี".replace("%s",sold.length),"game"],["กำไรเฉลี่ย/ไอดี","฿"+fmt(sold.length?(sales-cogs)/sold.length:0),"coins"],["ไอดีในสต็อก","%s ไอดี".replace("%s",st.length),"box"],["มูลค่าสต็อก (ทุน)","฿"+fmt(stockVal),"expense"]];
+  $("kpis").innerHTML=k.map(([l,v,ic,c])=>`<div class="kpi ${c||""}"><div class="ki" aria-hidden="true">${ICONS[ic]}</div><div class="kt"><div class="l">${l}</div><div class="v">${v}</div></div></div>`).join("")+(other?`<div class="hint" style="grid-column:1/-1">กำไรสุทธิหักรายจ่ายอื่นแล้ว ฿${fmt(other)}</div>`:"");
+  const agg={}; sold.forEach(x=>{const g=agg[x.game]=agg[x.game]||{n:0,p:0,s:0};g.n++;g.p+=x.price-x.cost;g.s+=x.price});
+  const top=Object.entries(agg).sort((a,b)=>b[1].p-a[1].p).slice(0,6);
+  $("topGames").innerHTML=top.length?top.map(([n,v])=>`<div><span>${esc(n)} <span class="hint">× ${v.n} ไอดี</span></span><span>+฿${fmt(v.p)}</span></div>`).join(""):`<div class="empty">ยังไม่มีการขายในช่วงนี้</div>`;
+  renderStock(st);
+  renderLedger(sold,bought,cs);
+  $("clearExamples").hidden=!ids.some(x=>x.example)&&!costs.some(x=>x.example);
+  drawChart();
+}
+function renderStock(st){
+  const box=$("stockList");
+  if(!st.length){box.innerHTML=`<div class="empty">สต็อกว่าง กด "รับซื้อไอดี" เพื่อเพิ่ม</div>`;return;}
+  box.innerHTML=st.map(x=>{const age=daysBetween(x.buyDate,today());return `<div class="stock-row">
+    <div class="stock-top">${x.photos&&x.photos.length?`<button class="r-ico photo" data-view="${x.id}" data-idx="0" aria-label="ดูรูป"><img src="${blob(x.photos[0])}" alt=""></button>`:`<span class="r-ico">${ICONS.game}</span>`}<span class="r-main"><span class="r-name">${esc(x.game)} · ${esc(x.detail||"-")}</span>
+      <span class="r-meta"><span>ทุน ฿${fmt(x.cost)}</span><span class="age ${age>=14?"old":""}">ค้างสต็อก ${age} วัน</span>${x.example?'<span class="ex">ตัวอย่าง</span>':""}</span></span>
+      ${sellingId===x.id?"":`<button class="small primary" data-sell="${x.id}">ขาย</button>`}</div>
+    ${thumbsHtml(x.photos,x.id,4,!!assetsApi)}
+    ${sellingId===x.id?`<div class="sellform"><input class="field" type="number" inputmode="decimal" id="sfPrice" placeholder="ราคาขาย" aria-label="ราคาขาย"><select class="field" id="sfMethod" aria-label="วิธีรับเงิน"><option value="transfer">โอน</option><option value="cash">เงินสด</option></select><input class="field" id="sfBuyer" placeholder="คนซื้อ" aria-label="คนซื้อ"><div class="row" style="gap:4px"><button class="small primary" id="sfOk">บันทึก</button><button class="small ghost" id="sfNo">ยกเลิก</button></div><span class="hint" id="sfProfit" style="grid-column:1/-1">ใส่ราคาขายเพื่อดูกำไร</span></div>`:""}
+  </div>`}).join("");
+  wirePhotos(box);
+  box.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>{sellingId=b.dataset.sell;render();setTimeout(()=>$("sfPrice")?.focus(),30)});
+  if(sellingId&&$("sfPrice")){
+    const x=ids.find(i=>i.id===sellingId);
+    $("sfPrice").oninput=e=>{const pr=(+e.target.value||0)-x.cost;$("sfProfit").innerHTML=`<span class="profit-tag ${pr<0?"neg":""}">กำไร ฿${fmt(pr)}</span>`};
+    $("sfNo").onclick=()=>{sellingId=null;render()};
+    $("sfOk").onclick=async()=>{const price=+$("sfPrice").value;if(!price){$("sfProfit").textContent="ใส่ราคาขายก่อน";return;}
+      $("sfOk").disabled=true;
+      try{await col.doc(x.id).update({status:"sold",price,saleDate:today(),buyer:$("sfBuyer").value.trim(),method:$("sfMethod").value,soldAt:Date.now()});sellingId=null;}
+      catch(e){$("sfProfit").textContent="บันทึกไม่สำเร็จ ลองอีกครั้ง";$("sfOk").disabled=false;}};
+  }
+}
+
+/* ---------- ledger ---------- */
+const LG_FILTERS=[["all","ทั้งหมด"],["sell","ขาย"],["buy","รับซื้อ"],["cost","ค่ายศ/จ่าย"]];
+let lgFilter="all", lgQuery="", seenIds=null; const closedDays=new Set();
+$("lgSearch").oninput=e=>{lgQuery=e.target.value.trim().toLowerCase();render()};
+function dayLabel(d){const t=today(),y=new Date();y.setDate(y.getDate()-1);
+  return {long:new Date(d+"T00:00:00").toLocaleDateString("th-TH",{weekday:"short",day:"numeric",month:"short",year:"2-digit"}),tag:d===t?"วันนี้":d===ymd(y)?"เมื่อวาน":""};}
+function renderLedger(sold,bought,cs){
+  const ev=[...sold.map(x=>({key:"s"+x.id,ref:x.id,kind:"sell",date:x.saleDate,t:x.soldAt||x.createdAt,x})),
+            ...bought.map(x=>({key:"b"+x.id,ref:x.id,kind:"buy",date:x.buyDate,t:x.createdAt,x})),
+            ...cs.map(c=>({key:"c"+c.id,ref:c.id,kind:c.kind,date:c.date,t:c.createdAt,c}))];
+  const match=(e,f)=>f==="all"||(f==="sell"&&e.kind==="sell")||(f==="buy"&&e.kind==="buy")||(f==="cost"&&(e.kind==="pagefee"||e.kind==="expense"));
+  $("lgFilter").innerHTML=LG_FILTERS.map(([k,l])=>`<button data-f="${k}" aria-pressed="${k===lgFilter}">${l} <span class="cnt">${ev.filter(e=>match(e,k)).length}</span></button>`).join("");
+  $("lgFilter").querySelectorAll("button").forEach(b=>b.onclick=()=>{lgFilter=b.dataset.f;render()});
+  const text=e=>e.x?[e.x.game,e.x.detail,e.x.buyer,e.x.seller].join(" ").toLowerCase():(e.c.item||"").toLowerCase();
+  const rows=ev.filter(e=>match(e,lgFilter)&&(!lgQuery||text(e).includes(lgQuery))).sort((a,b)=>b.date.localeCompare(a.date)||b.t-a.t);
+  const firstLoad=seenIds===null, known=seenIds||new Set();
+  if(!rows.length) $("ledger").innerHTML=`<div class="lg-empty"><div class="lg-empty-ico">${ICONS.list}</div><b>${ev.length?"ไม่พบรายการที่ค้นหา":"ยังไม่มีรายการในช่วงนี้"}</b><span class="hint">${ev.length?"ลองเปลี่ยนตัวกรองหรือคำค้นหา":"แตะปุ่มด่วนด้านบนเพื่อบันทึกรายการแรก"}</span></div>`;
+  else{
+    const days={}; rows.forEach(e=>(days[e.date]=days[e.date]||[]).push(e));
+    $("ledger").innerHTML=Object.entries(days).map(([d,items])=>{
+      const all=ev.filter(e=>e.date===d);
+      const inc=all.filter(e=>e.kind==="sell").reduce((a,e)=>a+e.x.price,0);
+      const gp=all.filter(e=>e.kind==="sell").reduce((a,e)=>a+e.x.price-e.x.cost,0);
+      const fee=all.filter(e=>e.c).reduce((a,e)=>a+e.c.amount,0);
+      const buy=all.filter(e=>e.kind==="buy").reduce((a,e)=>a+e.x.cost,0);
+      const pr=gp-fee; const pct=inc+fee+buy?Math.round(inc/(inc+fee+buy)*100):0;
+      const {long,tag}=dayLabel(d);
+      return `<details class="day" data-day="${d}"${closedDays.has(d)?"":" open"}><summary>
+        <div class="day-h"><span class="day-d">${long}</span>${tag?`<span class="day-tag">${tag}</span>`:""}<span class="day-n">${items.length} รายการ</span></div>
+        <div class="day-s"><span class="in">ขาย ฿${fmt(inc)}</span>${buy?`<span class="out" style="background:#eef2ff;color:#4338ca">รับซื้อ ฿${fmt(buy)}</span>`:""}${fee?`<span class="out">จ่าย ฿${fmt(fee)}</span>`:""}<span class="pr ${pr<0?"neg":""}">กำไร ฿${fmt(pr)}</span><svg class="chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="day-bar" aria-hidden="true"><i style="width:${pct}%"></i></div></summary>
+        <ul class="rows">${items.map((e,i)=>{
+          const isNew=!firstLoad&&!known.has(e.key); let name,meta,amt;
+          if(e.x){const x=e.x;name=`${esc(x.game)}${x.detail?" · "+esc(x.detail):""}`;
+            if(e.kind==="sell"){const p=x.price-x.cost;meta=`<span class="pill t-sell">ขายไอดี</span>${x.method?`<span>${METHOD[x.method]}</span>`:""}${x.buyer?`<span>ให้ ${esc(x.buyer)}</span>`:""}<span class="profit-tag ${p<0?"neg":""}">กำไร ฿${fmt(p)}</span>`;amt=`+฿${fmt(x.price)}`;}
+            else{meta=`<span class="pill t-buy">รับซื้อไอดี</span>${x.seller?`<span>จาก ${esc(x.seller)}</span>`:""}<span>${x.status==="sold"?"ขายแล้ว":"อยู่ในสต็อก"}</span>`;amt=`−฿${fmt(x.cost)}`;}
+            if(x.example) meta+='<span class="ex">ตัวอย่าง</span>';}
+          else{name=esc(e.c.item);meta=`<span class="pill t-${e.kind}">${TYPES[e.kind]}</span>${e.c.example?'<span class="ex">ตัวอย่าง</span>':""}`;amt=`−฿${fmt(e.c.amount)}`;}
+          const delAttr=e.kind==="sell"?`data-unsell="${e.ref}"`:e.kind==="buy"?`data-delid="${e.ref}"`:`data-delc="${e.ref}"`;
+          const ph=e.x&&e.x.photos&&e.x.photos.length;
+          const icoHtml=ph?`<button class="r-ico photo" data-view="${e.x.id}" data-idx="0" aria-label="ดูรูป ${e.x.photos.length} รูป"><img src="${blob(e.x.photos[0])}" alt="" loading="lazy"></button>`:`<span class="r-ico">${ICONS[e.kind==="sell"?"sell":e.kind]}</span>`;
+          if(ph&&e.x.photos.length>1) meta+=`<span>📷 ${e.x.photos.length} รูป</span>`;
+          return `<li class="r ${isNew?"new":""}" style="--i:${Math.min(i,8)}">${icoHtml}
+            <span class="r-main"><span class="r-name">${name}</span><span class="r-meta">${meta}</span></span>
+            <span class="r-amt a-${e.kind}">${amt}</span>
+            <span class="r-act"><button class="icon-btn" ${delAttr} aria-label="${e.kind==="sell"?"ยกเลิกการขาย":"ลบ"}">${TRASH}</button></span></li>`}).join("")}</ul></details>`}).join("");
+  }
+  seenIds=new Set(ev.map(e=>e.key).concat([...known]));
+  $("ledger").querySelectorAll("details.day").forEach(dt=>dt.addEventListener("toggle",()=>{dt.open?closedDays.delete(dt.dataset.day):closedDays.add(dt.dataset.day)}));
+  $("ledger").querySelectorAll(".icon-btn").forEach(b=>b.onclick=()=>armed(b));
+  wirePhotos($("ledger"));
+}
+function armed(b){
+  if(!b.dataset.armed){const lbl=b.dataset.unsell?"ยกเลิกขาย":"ยืนยันลบ";b.dataset.armed="1";b.classList.add("armed");b.innerHTML=TRASH+`<span>${lbl}</span>`;
+    setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.classList.remove("armed");b.innerHTML=TRASH}},3000);return;}
+  b.closest(".r")?.classList.add("leaving");
+  setTimeout(()=>{
+    if(b.dataset.unsell) col.doc(b.dataset.unsell).update({status:"stock"}).catch(()=>{});
+    else if(b.dataset.delid){const x=ids.find(i=>i.id===b.dataset.delid);col.doc(b.dataset.delid).delete().then(()=>((x&&x.photos)||[]).forEach(ph=>assetsApi&&assetsApi.delete(ph).catch(()=>{}))).catch(()=>{});}
+    else costCol.doc(b.dataset.delc).delete().catch(()=>{});
+  },220);
+}
+$("clearExamples").onclick=async()=>{for(const x of ids.filter(x=>x.example)){try{await col.doc(x.id).delete()}catch(_){}}for(const c of costs.filter(x=>x.example)){try{await costCol.doc(c.id).delete()}catch(_){}}};
+
+function drawChart(){
+  const days=[]; for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(ymd(d))}
+  const data=days.map(d=>{const s=ids.filter(x=>x.status==="sold"&&x.saleDate===d);return{d,s:s.reduce((a,x)=>a+x.price,0),p:s.reduce((a,x)=>a+x.price-x.cost,0),f:costs.filter(c=>c.date===d).reduce((a,c)=>a+c.amount,0)}});
+  const max=Math.max(1,...data.map(v=>Math.max(v.s,v.f)));
+  const step=Math.pow(10,Math.floor(Math.log10(max)));const nice=[1,2,2.5,5,10].map(m=>m*step).find(s=>max/s<=5)||step*10;
+  const top=Math.ceil(max/nice)*nice;
+  const W=640,H=220,L=48,B=28,T=10,cw=(W-L-8)/14,y=v=>T+(H-T-B)*(1-Math.max(0,v)/top);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:520px;display:block" role="img" aria-label="กราฟยอดขายและกำไรรายวัน">`;
+  for(let v=0;v<=top+1e-9;v+=nice) s+=`<line x1="${L}" x2="${W-8}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v>=1000?fmt(v/1000)+"k":fmt(v)}</text>`;
+  data.forEach((v,i)=>{const x=L+i*cw+cw*0.15,bw=cw*0.36;
+    s+=`<rect x="${x}" y="${y(v.s)}" width="${bw}" height="${y(0)-y(v.s)}" fill="#93c5fd" rx="2"><title>${thDate(v.d)} ยอดขาย ฿${fmt(v.s)}</title></rect>`;
+    s+=`<rect x="${x}" y="${y(v.p)}" width="${bw}" height="${y(0)-y(v.p)}" fill="#2563eb" rx="2"><title>${thDate(v.d)} กำไรต่อไอดี ฿${fmt(v.p)}</title></rect>`;
+    s+=`<rect x="${x+bw+2}" y="${y(v.f)}" width="${bw*0.7}" height="${y(0)-y(v.f)}" fill="#a855f7" rx="2"><title>${thDate(v.d)} ค่ายศเพจ+จ่ายอื่น ฿${fmt(v.f)}</title></rect>`;
+    if(i%2===1||i===13) s+=`<text x="${L+i*cw+cw/2}" y="${H-8}" text-anchor="middle">${thDate(v.d).replace(/\/\d+$/,"")}</text>`;});
+  $("chart").innerHTML=s+"</svg>";
+}
+
+/* ---------- export ---------- */
+async function save(filename,data){
+  if(!downloads){alertBar("ดาวน์โหลดไฟล์ไม่ได้ ลองเปิดด้วย Safari แล้วลองอีกครั้ง");return;}
+  try{await downloads.save({filename,data})}catch(e){if(e&&e.code!=="declined")alertBar("ส่งออกไม่สำเร็จ ลองอีกครั้ง")}
+}
+function alertBar(t){$("dbStatus").className="status err";$("dbStatus").textContent=t}
+const idRows=()=>[...ids].sort((a,b)=>a.buyDate.localeCompare(b.buyDate)).map(x=>({"เกม":x.game,"รายละเอียด":x.detail,"วันที่รับซื้อ":x.buyDate,"ซื้อจาก":x.seller||"","ทุน":x.cost,"สถานะ":x.status==="sold"?"ขายแล้ว":"ในสต็อก","วันที่ขาย":x.saleDate||"","ขายให้":x.buyer||"","รับเงิน":x.method?METHOD[x.method]:"","ราคาขาย":x.status==="sold"?x.price:"","กำไร":x.status==="sold"?x.price-x.cost:""}));
+const costRows=()=>[...costs].sort((a,b)=>a.date.localeCompare(b.date)).map(c=>({"วันที่":c.date,"ประเภท":TYPES[c.kind],"รายการ":c.item,"จำนวนเงิน":c.amount}));
+function dailyRows(){const by={};const g=d=>by[d]=by[d]||{"วันที่":d,"ยอดขาย":0,"ทุนไอดีที่ขาย":0,"รับซื้อเข้าสต็อก":0,"ค่ายศเพจ":0,"รายจ่ายอื่น":0,"กำไรสุทธิ":0};
+  ids.forEach(x=>{g(x.buyDate)["รับซื้อเข้าสต็อก"]+=x.cost;if(x.status==="sold"){const r=g(x.saleDate);r["ยอดขาย"]+=x.price;r["ทุนไอดีที่ขาย"]+=x.cost}});
+  costs.forEach(c=>g(c.date)[c.kind==="pagefee"?"ค่ายศเพจ":"รายจ่ายอื่น"]+=c.amount);
+  return Object.values(by).sort((a,b)=>a["วันที่"].localeCompare(b["วันที่"])).map(r=>(r["กำไรสุทธิ"]=r["ยอดขาย"]-r["ทุนไอดีที่ขาย"]-r["ค่ายศเพจ"]-r["รายจ่ายอื่น"],r));}
+$("xlsxBtn").onclick=()=>{
+  if(!window.XLSX){alertBar("โหลดตัวสร้างไฟล์ Excel ไม่ได้ ใช้ปุ่มส่งออก CSV แทน");return;}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(idRows()),"ไอดี");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(costRows()),"ค่ายศเพจและรายจ่าย");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(dailyRows()),"สรุปรายวัน");
+  save(`ขายไอดี-${today()}.xlsx`,new Blob([XLSX.write(wb,{bookType:"xlsx",type:"array"})]));
+};
+$("csvBtn").onclick=()=>{const rows=idRows();if(!rows.length){alertBar("ยังไม่มีรายการให้ส่งออก");return;}
+  const h=Object.keys(rows[0]);save(`ขายไอดี-${today()}.csv`,"﻿"+[h.join(","),...rows.map(r=>h.map(k=>`"${String(r[k]).replace(/"/g,'""')}"`).join(","))].join("\n"));};
+
+/* ---------- boot ---------- */
+const dl=document.createElement("datalist");dl.id="gameList";dl.innerHTML=GAMES.map(([n])=>`<option value="${n}">`).join("");document.body.append(dl);
+render();
+(async()=>{
+  const C=window.claude;
+  if(!C||!C.use){$("dbStatus").textContent="เบราว์เซอร์นี้เก็บข้อมูลไม่ได้ ลองเปิดด้วย Safari หรือ Chrome";return;}
+  C.use("sample").then(s=>sample=s); C.use("assets").then(a=>{assetsApi=a;render()}); C.use("downloads").then(d=>downloads=d);
+  const db=await C.use("db");
+  if(!db){$("dbStatus").textContent="เบราว์เซอร์นี้เก็บข้อมูลไม่ได้ ปิดโหมดส่วนตัวแล้วลองใหม่";return;}
+  col=db.collection("ids"); costCol=db.collection("costs");
+  let got=0; const timer=setTimeout(()=>{$("dbStatus").textContent="กำลังเปิดข้อมูลในเครื่อง…"},10000);
+  const done=snap=>{if(!snap.metadata.fromCache&&++got>=2){clearTimeout(timer);$("dbStatus").className="status";$("dbStatus").textContent=""}};
+  col.onSnapshot(snap=>{done(snap);ids=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.buyDate);render()},()=>{clearTimeout(timer);alertBar("โหลดข้อมูลไม่ได้ ปิดแล้วเปิดหน้านี้ใหม่")});
+  costCol.onSnapshot(snap=>{done(snap);costs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(c=>c.date&&TYPES[c.kind]);render()},()=>{clearTimeout(timer);alertBar("โหลดข้อมูลไม่ได้ ปิดแล้วเปิดหน้านี้ใหม่")});
+})();
+</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+</body>
+</html>
